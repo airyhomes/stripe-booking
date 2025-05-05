@@ -27,7 +27,13 @@ const calendarURLs = [
 async function checkAvailability(startDate, endDate) {
   const start = DateTime.fromISO(startDate, { zone: 'Europe/Athens' });
   const end = DateTime.fromISO(endDate, { zone: 'Europe/Athens' });
-  if (!start.isValid || !end.isValid || end <= start) return false;
+
+  console.log("Check availability for:", start.toISODate(), "to", end.toISODate());
+
+  if (!start.isValid || !end.isValid || end <= start) {
+    console.warn("Invalid date range or format:", { startDate, endDate });
+    return false;
+  }
 
   const datesToCheck = new Set();
   for (let d = start; d < end; d = d.plus({ days: 1 })) {
@@ -42,9 +48,15 @@ async function checkAvailability(startDate, endDate) {
           let eventStart = DateTime.fromJSDate(event.start, { zone: 'Europe/Athens' });
           let eventEnd = DateTime.fromJSDate(event.end, { zone: 'Europe/Athens' });
 
-          for (let d = eventStart; d < eventEnd; d = d.plus({ days: 1 })) {
-            if (datesToCheck.has(d.toISODate())) {
-              console.log('Conflict with event:', event.summary, event.start, event.end);
+          // FIX: Adjust all-day event ending to exclude last day (common in Google Calendar)
+          if (eventStart.hour === 0 && eventStart.minute === 0 && eventEnd.hour === 0 && eventEnd.minute === 0) {
+            eventEnd = eventEnd.minus({ days: 1 });
+          }
+
+          for (let d = eventStart; d <= eventEnd; d = d.plus({ days: 1 })) {
+            const iso = d.toISODate();
+            if (datesToCheck.has(iso)) {
+              console.log('❌ Conflict with event:', event.summary, iso);
               return false;
             }
           }
@@ -55,6 +67,7 @@ async function checkAvailability(startDate, endDate) {
       return false;
     }
   }
+  console.log("✅ No conflicts found, dates available");
   return true;
 }
 
