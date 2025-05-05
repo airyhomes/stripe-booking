@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Booking Form</title>
+  <style>
+    body { font-family: sans-serif; padding: 2rem; max-width: 600px; margin: auto; background: #f9f9f9; }
+    h1 { text-align: center; }
+    form { display: flex; flex-direction: column; }
+    input, select, button { margin: 0.5rem 0; padding: 0.5rem; }
+    #total { font-weight: bold; margin: 1rem 0; }
+    iframe { width: 100%; height: 300px; border: none; margin: 1rem 0; }
+  </style>
+</head>
+<body>
+  <h1>Book Your Stay</h1>
+
+  <h3>Availability</h3>
+  <!-- Replace the src URL with your Google Calendar embed link -->
+  <iframe src="https://calendar.google.com/calendar/embed?src=YOUR_CALENDAR_ID%40group.calendar.google.com&ctz=Europe%2FAthens"></iframe>
+
+  <form id="booking-form">
+    <label>Name:</label>
+    <input type="text" name="name" required />
+
+    <label>Email:</label>
+    <input type="email" name="email" required />
+
+    <label>Check-in:</label>
+    <input type="date" name="checkin" required />
+
+    <label>Check-out:</label>
+    <input type="date" name="checkout" required />
+
+    <label>Number of guests:</label>
+    <select name="guests" required>
+      <option value="1">1</option>
+      <option value="2">2</option>
+      <option value="3">3</option>
+      <option value="4">4</option>
+      <option value="5">5</option>
+    </select>
+
+    <label>Breakfast:</label>
+    <select name="breakfast" required>
+      <option value="No">No</option>
+      <option value="Yes">Yes</option>
+    </select>
+
+    <div id="total">Total: €0</div>
+    <button type="submit">Book & Pay</button>
+  </form>
+
+  <script>
+    const form = document.getElementById('booking-form');
+    const totalDiv = document.getElementById('total');
+    form.addEventListener('input', () => {
+      const checkin = new Date(form.checkin.value);
+      const checkout = new Date(form.checkout.value);
+      let nights = (checkout - checkin) / 86400000;
+      if (isNaN(nights) || nights < 0) nights = 0;
+      const breakfast = form.breakfast.value === 'Yes';
+      const base = 70 * nights;
+      const extra = breakfast ? 15 * nights : 0;
+      const total = base + extra;
+      totalDiv.textContent = `Total: €${total}`;
+    });
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const data = new URLSearchParams({
+        name: form.name.value,
+        email: form.email.value,
+        nights: Math.max(0, (new Date(form.checkout.value) - new Date(form.checkin.value)) / 86400000),
+        breakfast: form.breakfast.value
+      });
+      window.location.href = `/pay?${data}`;
+    });
+  </script>
+</body>
+</html>
