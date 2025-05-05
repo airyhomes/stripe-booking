@@ -28,10 +28,7 @@ async function checkAvailability(startDate, endDate) {
   const start = DateTime.fromISO(startDate, { zone: 'Europe/Athens' });
   const end = DateTime.fromISO(endDate, { zone: 'Europe/Athens' });
 
-  console.log("Check availability for:", start.toISODate(), "to", end.toISODate());
-
   if (!start.isValid || !end.isValid || end <= start) {
-    console.warn("Invalid date range or format:", { startDate, endDate });
     return false;
   }
 
@@ -48,15 +45,18 @@ async function checkAvailability(startDate, endDate) {
           let eventStart = DateTime.fromJSDate(event.start, { zone: 'Europe/Athens' });
           let eventEnd = DateTime.fromJSDate(event.end, { zone: 'Europe/Athens' });
 
-          // FIX: Adjust all-day event ending to exclude last day (common in Google Calendar)
-          if (eventStart.hour === 0 && eventStart.minute === 0 && eventEnd.hour === 0 && eventEnd.minute === 0) {
+          // FIX: Adjust all-day event ending to exclude last day (only for all-day events)
+          if (
+            event.datetype === 'date' ||
+            (eventStart.hour === 0 && eventStart.minute === 0 &&
+             eventEnd.hour === 0 && eventEnd.minute === 0 && eventEnd > eventStart)
+          ) {
             eventEnd = eventEnd.minus({ days: 1 });
           }
 
           for (let d = eventStart; d <= eventEnd; d = d.plus({ days: 1 })) {
             const iso = d.toISODate();
             if (datesToCheck.has(iso)) {
-              console.log('❌ Conflict with event:', event.summary, iso);
               return false;
             }
           }
@@ -67,7 +67,6 @@ async function checkAvailability(startDate, endDate) {
       return false;
     }
   }
-  console.log("✅ No conflicts found, dates available");
   return true;
 }
 
@@ -88,7 +87,6 @@ app.get('/pay', async (req, res) => {
   try {
     const { name, email, nights, breakfast, checkin, checkout } = req.query;
 
-    // Check availability
     const available = await checkAvailability(checkin, checkout);
     if (!available) {
       return res.status(400).send('Selected dates are not available.');
@@ -97,13 +95,11 @@ app.get('/pay', async (req, res) => {
     const nightsNum = parseInt(nights, 10) || 0;
     const breakfastIncluded = breakfast === 'Yes';
 
-    // Pricing logic
-    const baseRate = 70;         // €70 per night
-    const breakfastRate = 15;    // €15 per night if breakfast
+    const baseRate = 70;
+    const breakfastRate = 15;
     const totalCost = nightsNum * baseRate + (breakfastIncluded ? nightsNum * breakfastRate : 0);
     const amountInCents = Math.round(totalCost * 100);
 
-    // Create Stripe Checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       customer_email: email,
@@ -124,7 +120,6 @@ app.get('/pay', async (req, res) => {
       cancel_url: `${req.protocol}://${req.get('host')}/cancel.html`,
     });
 
-    // Redirect to Stripe Checkout
     res.redirect(303, session.url);
   } catch (error) {
     console.error('Error creating Stripe checkout session:', error);
@@ -132,7 +127,6 @@ app.get('/pay', async (req, res) => {
   }
 });
 
-// Start the server
 const PORT = process.env.PORT || 4242;
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
