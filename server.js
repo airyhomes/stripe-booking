@@ -19,8 +19,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // iCal URLs
 const calendarURLs = [
-  'https://www.airbnb.com/calendar/ical/633548907734250400.ics?s=4d766b85be70677851040c210b4a4095&locale=el',
-  'https://ical.booking.com/v1/export?t=5825e246-abce-4226-867d-61b214321ab5'
+  'https://calendar.google.com/calendar/ical/https://calendar.google.com/calendar/ical/0870251707b2d16ef9fef974b3c330afb97e4720e492ff333f49a02e95f21748%40group.calendar.google.com/private-a56c7343a07f14352193ba719b45037b/basic.ics/basic.ics' // το secret iCal του stone house
 ];
 
 // Helper to check availability
