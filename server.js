@@ -12,8 +12,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Initialize Stripe with secret key from environment variable
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+// Initialize Stripe with secret key directly (embedded)
+const stripe = Stripe('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');
 
 // Serve static files from 'public' directory (index.html, success.html, cancel.html)
 app.use(express.static(path.join(__dirname, 'public')));
