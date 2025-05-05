@@ -24,16 +24,26 @@ const calendarURLs = [
 
 // Helper to check availability
 async function checkAvailability(startDate, endDate) {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) return false;
+
   for (const url of calendarURLs) {
     try {
       const data = await ical.async.fromURL(url);
-      console.log('Fetched events:', Object.values(data));
-
       for (const event of Object.values(data)) {
         if (event.start && event.end) {
-          if (new Date(event.start) < new Date(endDate) && new Date(event.end) > new Date(startDate)) {
-            console.log('Conflict found with event:', event.summary, event.start, event.end);
-            return false; // Dates conflict
+          const eventStart = new Date(event.start);
+          const eventEnd = new Date(event.end);
+
+          // Fix: Check if any day in the requested range overlaps with a booked day (inclusive)
+          if (
+            (start >= eventStart && start < eventEnd) ||
+            (end > eventStart && end <= eventEnd) ||
+            (start <= eventStart && end >= eventEnd)
+          ) {
+            console.log('Conflict with event:', event.summary, event.start, event.end);
+            return false;
           }
         }
       }
@@ -41,7 +51,7 @@ async function checkAvailability(startDate, endDate) {
       console.error('Failed to fetch calendar:', err);
     }
   }
-  return true; // No conflicts
+  return true;
 }
 
 // Root route serves the booking form
