@@ -4,7 +4,6 @@ const path = require('path');
 const cors = require('cors');
 const Stripe = require('stripe');
 const ical = require('node-ical');
-const { DateTime } = require('luxon');
 const app = express();
 
 // Middleware
@@ -12,8 +11,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Initialize Stripe with secret key directly (embedded)
-const stripe = Stripe('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');
+// Initialize Stripe with secret key from environment variable
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
 // Serve static files from 'public' directory (index.html, success.html, cancel.html)
 app.use(express.static(path.join(__dirname, 'public')));
@@ -25,49 +24,24 @@ const calendarURLs = [
 
 // Helper to check availability
 async function checkAvailability(startDate, endDate) {
-  const start = DateTime.fromISO(startDate, { zone: 'Europe/Athens' });
-  const end = DateTime.fromISO(endDate, { zone: 'Europe/Athens' });
-
-  if (!start.isValid || !end.isValid || end <= start) {
-    return false;
-  }
-
-  const datesToCheck = new Set();
-  for (let d = start; d < end; d = d.plus({ days: 1 })) {
-    datesToCheck.add(d.toISODate());
-  }
-
   for (const url of calendarURLs) {
     try {
       const data = await ical.async.fromURL(url);
+      console.log('Fetched events:', Object.values(data));
+
       for (const event of Object.values(data)) {
         if (event.start && event.end) {
-          let eventStart = DateTime.fromJSDate(event.start, { zone: 'Europe/Athens' });
-          let eventEnd = DateTime.fromJSDate(event.end, { zone: 'Europe/Athens' });
-
-          // FIX: Adjust all-day event ending to exclude last day (only for all-day events)
-          if (
-            event.datetype === 'date' ||
-            (eventStart.hour === 0 && eventStart.minute === 0 &&
-             eventEnd.hour === 0 && eventEnd.minute === 0 && eventEnd > eventStart)
-          ) {
-            eventEnd = eventEnd.minus({ days: 1 });
-          }
-
-          for (let d = eventStart; d <= eventEnd; d = d.plus({ days: 1 })) {
-            const iso = d.toISODate();
-            if (datesToCheck.has(iso)) {
-              return false;
-            }
+          if (new Date(event.start) < new Date(endDate) && new Date(event.end) > new Date(startDate)) {
+            console.log('Conflict found with event:', event.summary, event.start, event.end);
+            return false; // Dates conflict
           }
         }
       }
     } catch (err) {
       console.error('Failed to fetch calendar:', err);
-      return false;
     }
   }
-  return true;
+  return true; // No conflicts
 }
 
 // Root route serves the booking form
@@ -87,6 +61,7 @@ app.get('/pay', async (req, res) => {
   try {
     const { name, email, nights, breakfast, checkin, checkout } = req.query;
 
+    // Check availability
     const available = await checkAvailability(checkin, checkout);
     if (!available) {
       return res.status(400).send('Selected dates are not available.');
@@ -95,11 +70,13 @@ app.get('/pay', async (req, res) => {
     const nightsNum = parseInt(nights, 10) || 0;
     const breakfastIncluded = breakfast === 'Yes';
 
-    const baseRate = 70;
-    const breakfastRate = 15;
+    // Pricing logic
+    const baseRate = 70;         // €70 per night
+    const breakfastRate = 15;    // €15 per night if breakfast
     const totalCost = nightsNum * baseRate + (breakfastIncluded ? nightsNum * breakfastRate : 0);
     const amountInCents = Math.round(totalCost * 100);
 
+    // Create Stripe Checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       customer_email: email,
@@ -108,7 +85,7 @@ app.get('/pay', async (req, res) => {
           price_data: {
             currency: 'eur',
             product_data: {
-              name: `Booking: ${nightsNum} night(s) - ${breakfastIncluded ? 'with breakfast' : 'no breakfast'}`,
+              name: Booking: ${nightsNum} night(s) - ${breakfastIncluded ? 'with breakfast' : 'no breakfast'},
             },
             unit_amount: amountInCents,
           },
@@ -116,10 +93,11 @@ app.get('/pay', async (req, res) => {
         },
       ],
       mode: 'payment',
-      success_url: `${req.protocol}://${req.get('host')}/success.html`,
-      cancel_url: `${req.protocol}://${req.get('host')}/cancel.html`,
+      success_url: ${req.protocol}://${req.get('host')}/success.html,
+      cancel_url: ${req.protocol}://${req.get('host')}/cancel.html,
     });
 
+    // Redirect to Stripe Checkout
     res.redirect(303, session.url);
   } catch (error) {
     console.error('Error creating Stripe checkout session:', error);
@@ -127,7 +105,8 @@ app.get('/pay', async (req, res) => {
   }
 });
 
+// Start the server
 const PORT = process.env.PORT || 4242;
 app.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
+  console.log(Server listening on port ${PORT});
 });
