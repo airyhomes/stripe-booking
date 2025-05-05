@@ -3,6 +3,7 @@ const express = require('express');
 const path = require('path');
 const cors = require('cors');
 const Stripe = require('stripe');
+const ical = require('node-ical');
 const app = express();
 
 // Middleware
@@ -16,15 +17,50 @@ const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 // Serve static files from 'public' directory (index.html, success.html, cancel.html)
 app.use(express.static(path.join(__dirname, 'public')));
 
+// iCal URLs
+const calendarURLs = [
+  'https://www.airbnb.com/calendar/ical/633548907734250400.ics?s=4d766b85be70677851040c210b4a4095&locale=el',
+  'https://ical.booking.com/v1/export?t=5825e246-abce-4226-867d-61b214321ab5'
+];
+
+// Helper to check availability
+async function checkAvailability(startDate, endDate) {
+  for (const url of calendarURLs) {
+    const data = await ical.async.fromURL(url);
+    for (const event of Object.values(data)) {
+      if (event.start && event.end) {
+        if (new Date(event.start) < new Date(endDate) && new Date(event.end) > new Date(startDate)) {
+          return false; // Dates conflict
+        }
+      }
+    }
+  }
+  return true; // No conflicts
+}
+
 // Root route serves the booking form
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Endpoint to check date availability
+app.get('/check-dates', async (req, res) => {
+  const { checkin, checkout } = req.query;
+  const available = await checkAvailability(checkin, checkout);
+  res.json({ available });
+});
+
 // Endpoint to create Stripe Checkout session
 app.get('/pay', async (req, res) => {
   try {
-    const { name, email, nights, breakfast } = req.query;
+    const { name, email, nights, breakfast, checkin, checkout } = req.query;
+
+    // Check availability
+    const available = await checkAvailability(checkin, checkout);
+    if (!available) {
+      return res.status(400).send('Selected dates are not available.');
+    }
+
     const nightsNum = parseInt(nights, 10) || 0;
     const breakfastIncluded = breakfast === 'Yes';
 

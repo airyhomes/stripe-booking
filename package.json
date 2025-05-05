@@ -1,15 +1,15 @@
 {
-  "name": "stripe-booking",
+  "name": "booking-site",
   "version": "1.0.0",
-  "description": "Booking system with Stripe checkout",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "stripe": "^10.15.0",
     "cors": "^2.8.5",
-    "dotenv": "^16.0.3"
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "node-ical": "^0.15.0",
+    "stripe": "^12.11.0"
   }
 }
