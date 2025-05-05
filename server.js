@@ -26,7 +26,7 @@ const calendarURLs = [
 async function checkAvailability(startDate, endDate) {
   const start = new Date(startDate);
   const end = new Date(endDate);
-  if (isNaN(start.getTime()) || isNaN(end.getTime())) return false;
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) return false;
 
   for (const url of calendarURLs) {
     try {
@@ -36,7 +36,10 @@ async function checkAvailability(startDate, endDate) {
           const eventStart = new Date(event.start);
           const eventEnd = new Date(event.end);
 
-          // Fix: Check if any day in the requested range overlaps with a booked day (inclusive)
+          // Ensure event range is valid
+          if (isNaN(eventStart.getTime()) || isNaN(eventEnd.getTime())) continue;
+
+          // Check for any overlap
           if (
             (start >= eventStart && start < eventEnd) ||
             (end > eventStart && end <= eventEnd) ||
@@ -49,6 +52,7 @@ async function checkAvailability(startDate, endDate) {
       }
     } catch (err) {
       console.error('Failed to fetch calendar:', err);
+      return false;
     }
   }
   return true;
