@@ -28,6 +28,11 @@ async function checkAvailability(startDate, endDate) {
   const end = new Date(endDate);
   if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) return false;
 
+  const datesToCheck = new Set();
+  for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+    datesToCheck.add(new Date(d).toISOString().split('T')[0]);
+  }
+
   for (const url of calendarURLs) {
     try {
       const data = await ical.async.fromURL(url);
@@ -36,17 +41,12 @@ async function checkAvailability(startDate, endDate) {
           const eventStart = new Date(event.start);
           const eventEnd = new Date(event.end);
 
-          // Ensure event range is valid
-          if (isNaN(eventStart.getTime()) || isNaN(eventEnd.getTime())) continue;
-
-          // Check for any overlap
-          if (
-            (start >= eventStart && start < eventEnd) ||
-            (end > eventStart && end <= eventEnd) ||
-            (start <= eventStart && end >= eventEnd)
-          ) {
-            console.log('Conflict with event:', event.summary, event.start, event.end);
-            return false;
+          for (let d = new Date(eventStart); d < eventEnd; d.setDate(d.getDate() + 1)) {
+            const dateStr = new Date(d).toISOString().split('T')[0];
+            if (datesToCheck.has(dateStr)) {
+              console.log('Conflict with event:', event.summary, event.start, event.end);
+              return false;
+            }
           }
         }
       }
