@@ -4,6 +4,7 @@ const path = require('path');
 const cors = require('cors');
 const Stripe = require('stripe');
 const ical = require('node-ical');
+const { DateTime } = require('luxon');
 const app = express();
 
 // Middleware
@@ -24,13 +25,13 @@ const calendarURLs = [
 
 // Helper to check availability
 async function checkAvailability(startDate, endDate) {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) return false;
+  const start = DateTime.fromISO(startDate, { zone: 'Europe/Athens' });
+  const end = DateTime.fromISO(endDate, { zone: 'Europe/Athens' });
+  if (!start.isValid || !end.isValid || end <= start) return false;
 
   const datesToCheck = new Set();
-  for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
-    datesToCheck.add(new Date(d).toISOString().split('T')[0]);
+  for (let d = start; d < end; d = d.plus({ days: 1 })) {
+    datesToCheck.add(d.toISODate());
   }
 
   for (const url of calendarURLs) {
@@ -38,12 +39,11 @@ async function checkAvailability(startDate, endDate) {
       const data = await ical.async.fromURL(url);
       for (const event of Object.values(data)) {
         if (event.start && event.end) {
-          const eventStart = new Date(event.start);
-          const eventEnd = new Date(event.end);
+          let eventStart = DateTime.fromJSDate(event.start, { zone: 'Europe/Athens' });
+          let eventEnd = DateTime.fromJSDate(event.end, { zone: 'Europe/Athens' });
 
-          for (let d = new Date(eventStart); d < eventEnd; d.setDate(d.getDate() + 1)) {
-            const dateStr = new Date(d).toISOString().split('T')[0];
-            if (datesToCheck.has(dateStr)) {
+          for (let d = eventStart; d < eventEnd; d = d.plus({ days: 1 })) {
+            if (datesToCheck.has(d.toISODate())) {
               console.log('Conflict with event:', event.summary, event.start, event.end);
               return false;
             }
